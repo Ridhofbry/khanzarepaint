@@ -2,42 +2,39 @@
 
 namespace App\Observers;
 
+use App\Enums\BookingStatus;
 use App\Models\Booking;
+use Illuminate\Validation\ValidationException;
 
 class BookingObserver
 {
-    /**
-     * Handle the Booking "created" event.
-     */
-    public function created(Booking $booking): void
+    public function creating(Booking $booking): void
     {
-        // Log booking creation for auditing
-        activity('booking')
-            ->performedOn($booking)
-            ->causedBy($booking->user)
-            ->log('created');
+        $this->validateNoOverlappingBookings($booking);
     }
 
-    /**
-     * Handle the Booking "updated" event.
-     */
-    public function updated(Booking $booking): void
+    public function updating(Booking $booking): void
     {
-        // Log any status changes
-        activity('booking')
-            ->performedOn($booking)
-            ->causedBy(auth()->user())
-            ->log('updated');
+        if ($booking->isDirty('status') && $booking->status === BookingStatus::Completed) {
+            $booking->user->recordService($booking->total_price);
+        }
+        
+        if ($booking->isDirty('scheduled_date')) {
+            $this->validateNoOverlappingBookings($booking);
+        }
     }
-
-    /**
-     * Handle the Booking "deleted" event.
-     */
-    public function deleted(Booking $booking): void
+    
+    private function validateNoOverlappingBookings(Booking $booking): void
     {
-        activity('booking')
-            ->performedOn($booking)
-            ->causedBy(auth()->user())
-            ->log('deleted');
+        $exists = Booking::where('service_id', $booking->service_id)
+            ->where('scheduled_date', $booking->scheduled_date)
+            ->where('id', '!=', $booking->id)
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'scheduled_date' => 'An overlapping booking already exists for this service on the selected date.',
+            ]);
+        }
     }
 }

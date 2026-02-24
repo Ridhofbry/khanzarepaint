@@ -14,18 +14,10 @@ return new class extends Migration
         Schema::create('services', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->text('description');
-            $table->enum('type', ['repaint', 'general'])->default('general');
-            $table->integer('price'); // In cents
-            $table->integer('duration_minutes')->default(60); // Service duration
-            $table->string('image_url')->nullable();
-            $table->text('included_features')->nullable();
-            $table->boolean('is_active')->default(true);
+            $table->text('description')->nullable();
+            $table->integer('price');
+            $table->integer('duration_minutes');
             $table->timestamps();
-            $table->softDeletes();
-            
-            $table->index('type');
-            $table->index('is_active');
         });
     }
 
